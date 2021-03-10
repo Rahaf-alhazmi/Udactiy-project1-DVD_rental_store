@@ -1,0 +1,100 @@
+/*Q1:Create a query that lists each movie, the film category 
+it is classified in,and the number of times it has been rented out. */
+
+SELECT cat.name AS category_name,
+       count(rental_id)AS rental_id
+FROM category cat
+JOIN film_category fc ON cat.category_id=fc.category_id
+JOIN film f ON fc.film_id=f.film_id
+JOIN inventory i ON f.film_id=i.film_id
+JOIN rental r ON i.inventory_id=r.inventory_id
+WHERE cat.name IN ('Animation',
+                   'Children',
+                   'Classics',
+                   'Comedy',
+                   'Family',
+                   'Music')
+GROUP BY category_name
+ORDER BY 2 DESC;
+
+
+/*Q2 Can you provide a table with the movie titles and divide them 
+into 4 levels (first_quarter, second_quarter, third_quarter, 
+and final_quarter) based on the quartiles (25%, 50%, 75%) 
+of the rental duration for movies across all categories?  */
+ 
+SELECT category_name,
+       count(standard_quartile) AS Total_rented_films,
+       Rental_duration
+FROM
+  (SELECT f.rental_duration AS Rental_duration,
+          cat.name AS category_name,
+          NTILE(4) OVER (
+                         ORDER BY Rental_duration) AS standard_quartile
+   FROM film f
+   JOIN film_category fc ON f.film_id=fc.film_id
+   JOIN category cat ON fc.category_id=cat.category_id
+   WHERE cat.name IN ('Animation',
+                      'Children',
+                      'Classics',
+                      'Comedy',
+                      'Family',
+                      'Music'))sub1
+GROUP BY 1,
+         3
+ORDER BY 1;
+
+/* Q3 Write a query that returns the store ID for the store, the year 
+and month and the number of rental orders each store has fulfilled for 
+that month. Your table should include a column for each of the following: 
+year, month, store ID and count of rental orders fulfilled during that month.*/
+
+WITH A1 AS
+  (SELECT DATE_PART('year', r.rental_date) AS rental_year,
+          DATE_PART('month', r.rental_date) AS rental_month,
+          s.store_id AS store_id,
+          count(r.rental_id) AS number_of_rental_order
+   FROM store st
+   JOIN staff s ON st.store_id=s.store_id
+   JOIN payment pay ON s.staff_id=pay.staff_id
+   JOIN rental r ON pay.rental_id=r.rental_id
+   GROUP BY 1,
+            2,
+            3
+   ORDER BY 4 DESC)
+SELECT CONCAT (rental_year,
+               '-',
+               rental_month) AS rental_date,
+              store_id,
+              number_of_rental_order
+FROM A1;
+
+/*Q4:provide a table with the family-friendly film category, 
+each of the quartiles, and the corresponding count of movies 
+within each combination of film category for each corresponding 
+rental duration category. The resulting table should have three columns:*/
+SELECT Category_name,
+       standard_quartile,
+       count(standard_quartile)
+FROM
+  (SELECT *,
+          NTILE(4) OVER (
+                         ORDER BY Rental_duration) AS standard_quartile
+   FROM
+     (SELECT f.title Title,
+             cat.name Category_name,
+             f.rental_duration Rental_duration
+      FROM film f
+      JOIN film_category fc ON f.film_id=fc.film_id
+      JOIN category cat ON fc.category_id=cat.category_id
+      WHERE cat.name IN ('Animation',
+                         'Children',
+                         'Classics',
+                         'Comedy',
+                         'Family',
+                         'Music')
+      ORDER BY 3) AS t2)AS t3
+GROUP BY Category_name,
+         standard_quartile
+ORDER BY Category_name,
+         standard_quartile;
